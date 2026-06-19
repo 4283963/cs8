@@ -1,0 +1,98 @@
+[
+  {
+    "id": "t-1",
+    "title": "设计登录页面",
+    "description": "完成新版登录页的 UI 设计稿并交付切图",
+    "status": "todo",
+    "priority": "high",
+    "assignee": "Alice",
+    "tags": [
+      "设计",
+      "UI"
+    ],
+    "createdAt": "2026-06-15T09:00:00.000Z",
+    "updatedAt": "2026-06-19T01:24:06.906Z"
+  },
+  {
+    "id": "t-2",
+    "title": "编写用户注册接口",
+    "description": "实现 /api/auth/register，包含参数校验与密码加密",
+    "status": "todo",
+    "priority": "medium",
+    "assignee": "Bob",
+    "tags": [
+      "后端",
+      "API"
+    ],
+    "createdAt": "2026-06-15T09:30:00.000Z",
+    "updatedAt": "2026-06-15T09:30:00.000Z"
+  },
+  {
+    "id": "t-3",
+    "title": "整理需求文档",
+    "description": "汇总本周用户反馈，输出优先级排序文档",
+    "status": "todo",
+    "priority": "low",
+    "assignee": "Carol",
+    "tags": [
+      "文档"
+    ],
+    "createdAt": "2026-06-15T10:00:00.000Z",
+    "updatedAt": "2026-06-15T10:00:00.000Z"
+  },
+  {
+    "id": "t-4",
+    "title": "实现拖拽看板组件",
+    "description": "基于 HTML5 Drag and Drop 实现卡片跨栏拖拽与状态同步",
+    "status": "in-progress",
+    "priority": "high",
+    "assignee": "David",
+    "tags": [
+      "前端",
+      "Vue3"
+    ],
+    "createdAt": "2026-06-16T09:00:00.000Z",
+    "updatedAt": "2026-06-17T14:20:00.000Z"
+  },
+  {
+    "id": "t-5",
+    "title": "搭建 CI/CD 流水线",
+    "description": "配置 GitHub Actions 自动构建并部署到测试环境",
+    "status": "in-progress",
+    "priority": "medium",
+    "assignee": "Eric",
+    "tags": [
+      "运维",
+      "CI"
+    ],
+    "createdAt": "2026-06-16T11:00:00.000Z",
+    "updatedAt": "2026-06-17T16:05:00.000Z"
+  },
+  {
+    "id": "t-6",
+    "title": "初始化项目仓库",
+    "description": "创建 monorepo 结构并配置基础目录与 README",
+    "status": "done",
+    "priority": "medium",
+    "assignee": "Alice",
+    "tags": [
+      "工程"
+    ],
+    "createdAt": "2026-06-14T09:00:00.000Z",
+    "updatedAt": "2026-06-14T12:00:00.000Z"
+  },
+  {
+    "id": "t-7",
+    "title": "配置 ESLint 规范",
+    "description": "统一前后端代码风格，接入 pre-commit 校验",
+    "status": "done",
+    "priority": "low",
+    "assignee": "Bob",
+    "tags": [
+      "工程",
+      "规范"
+    ],
+    "createdAt": "2026-06-14T13:00:00.000Z",
+    "updatedAt": "2026-06-14T17:30:00.000Z"
+  }
+]
