@@ -11,6 +11,7 @@ const emit = defineEmits(['move']);
 
 const dragCounter = ref(0);
 const isDragOver = computed(() => dragCounter.value > 0);
+const dropIndex = ref(null);
 
 function onDragEnter(event) {
   event.preventDefault();
@@ -22,18 +23,35 @@ function onDragOver(event) {
   if (event.dataTransfer) {
     event.dataTransfer.dropEffect = 'move';
   }
+  if (dropIndex.value === null) dropIndex.value = props.tasks.length;
 }
 
-function onDragLeave() {
-  dragCounter.value = Math.max(0, dragCounter.value - 1);
+function onDragLeave(event) {
+  if (!event.currentTarget.contains(event.relatedTarget)) {
+    dragCounter.value = Math.max(0, dragCounter.value - 1);
+    if (dragCounter.value === 0) dropIndex.value = null;
+  }
+}
+
+function onCardDragOver(event, index) {
+  event.preventDefault();
+  event.stopPropagation();
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move';
+  }
+  const rect = event.currentTarget.getBoundingClientRect();
+  const isUpperHalf = event.clientY < rect.top + rect.height / 2;
+  dropIndex.value = isUpperHalf ? index : index + 1;
 }
 
 function onDrop(event) {
   event.preventDefault();
+  const insertIndex = dropIndex.value ?? props.tasks.length;
   dragCounter.value = 0;
+  dropIndex.value = null;
   const taskId = event.dataTransfer?.getData('text/plain');
   if (taskId) {
-    emit('move', taskId, props.column.id);
+    emit('move', taskId, props.column.id, insertIndex);
   }
 }
 </script>
@@ -54,13 +72,25 @@ function onDrop(event) {
     </header>
 
     <div class="kanban-column__body">
-      <TaskCard
-        v-for="task in tasks"
-        :key="task.id"
-        :task="task"
+      <template v-for="(task, index) in tasks" :key="task.id">
+        <div
+          v-if="isDragOver && dropIndex === index"
+          class="drop-indicator"
+        />
+        <div
+          class="kanban-column__card-wrapper"
+          @dragover="onCardDragOver($event, index)"
+        >
+          <TaskCard :task="task" />
+        </div>
+      </template>
+
+      <div
+        v-if="isDragOver && dropIndex === tasks.length"
+        class="drop-indicator"
       />
 
-      <div v-if="tasks.length === 0" class="kanban-column__empty">
+      <div v-if="tasks.length === 0 && !isDragOver" class="kanban-column__empty">
         <span>拖拽任务卡片到此处</span>
       </div>
     </div>
@@ -123,6 +153,29 @@ function onDrop(event) {
   min-height: 80px;
   display: flex;
   flex-direction: column;
+}
+
+.kanban-column__card-wrapper {
+  display: block;
+}
+
+.drop-indicator {
+  height: 4px;
+  margin: 4px 2px;
+  border-radius: 999px;
+  background: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
+  animation: drop-pulse 1s ease-in-out infinite;
+}
+
+@keyframes drop-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
 }
 
 .kanban-column__empty {

@@ -8,11 +8,11 @@ export async function fetchTasks() {
   return res.json();
 }
 
-export async function moveTask(taskId, newStatus) {
+export async function moveTask(taskId, newStatus, newOrder) {
   const res = await fetch(`${API_BASE}/task/move`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ taskId, newStatus }),
+    body: JSON.stringify({ taskId, newStatus, newOrder }),
   });
 
   if (!res.ok) {

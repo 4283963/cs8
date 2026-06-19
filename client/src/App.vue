@@ -29,24 +29,65 @@ const tasksByStatus = computed(() => {
   for (const task of tasks.value) {
     if (map[task.status]) map[task.status].push(task);
   }
+  for (const status of Object.keys(map)) {
+    map[status].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  }
   return map;
 });
 
 const total = computed(() => tasks.value.length);
 
-async function handleMove(taskId, newStatus) {
-  const task = tasks.value.find((t) => t.id === taskId);
-  if (!task || task.status === newStatus) return;
+const orderBy = (a, b) => (a.order ?? 0) - (b.order ?? 0);
 
-  const previousStatus = task.status;
-  task.status = newStatus;
+function applyMoveLocal(taskId, newStatus, newOrder) {
+  const lists = { todo: [], 'in-progress': [], done: [] };
+  let moved = null;
+  for (const t of tasks.value) {
+    if (t.id === taskId) {
+      moved = t;
+      continue;
+    }
+    if (lists[t.status]) lists[t.status].push(t);
+  }
+  for (const status of Object.keys(lists)) lists[status].sort(orderBy);
+
+  const target = lists[newStatus];
+  const clamped = Math.max(0, Math.min(newOrder, target.length));
+  target.splice(clamped, 0, moved);
+
+  moved.status = newStatus;
+  moved.updatedAt = new Date().toISOString();
+
+  for (const status of Object.keys(lists)) {
+    lists[status].forEach((t, i) => {
+      t.order = i;
+    });
+  }
+  tasks.value = [...lists.todo, ...lists['in-progress'], ...lists.done];
+}
+
+async function handleMove(taskId, newStatus, insertIndex) {
+  const task = tasks.value.find((t) => t.id === taskId);
+  if (!task) return;
+
+  let newOrder = insertIndex;
+  if (task.status === newStatus) {
+    const list = tasksByStatus.value[newStatus];
+    const draggedIndex = list.findIndex((t) => t.id === taskId);
+    if (draggedIndex !== -1 && newOrder > draggedIndex) newOrder -= 1;
+  }
+  if (task.status === newStatus && task.order === newOrder) return;
+
+  const snapshot = tasks.value.map((t) => ({ ...t }));
+  applyMoveLocal(taskId, newStatus, newOrder);
   savingId.value = taskId;
   errorMsg.value = '';
 
   try {
-    await moveTask(taskId, newStatus);
+    const data = await moveTask(taskId, newStatus, newOrder);
+    if (Array.isArray(data.tasks)) tasks.value = data.tasks;
   } catch (err) {
-    task.status = previousStatus;
+    tasks.value = snapshot;
     errorMsg.value = `同步失败：${err.message}（已回滚）`;
   } finally {
     savingId.value = null;
