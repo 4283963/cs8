@@ -7,7 +7,8 @@ import path from 'node:path';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_FILE = path.join(__dirname, 'data.json');
 
-const VALID_STATUSES = ['todo', 'in-progress', 'done'];
+const VALID_STATUSES = ['todo', 'in-progress', 'done', 'archived'];
+const VISIBLE_STATUSES = ['todo', 'in-progress', 'done'];
 
 const app = express();
 app.use(cors());
@@ -33,15 +34,15 @@ async function persist() {
 const orderBy = (a, b) => (a.order ?? 0) - (b.order ?? 0);
 
 function normalizeOrders() {
-  const lists = { todo: [], 'in-progress': [], done: [] };
+  const lists = { todo: [], 'in-progress': [], done: [], archived: [] };
   for (const t of tasks) if (lists[t.status]) lists[t.status].push(t);
-  for (const status of VALID_STATUSES) {
+  for (const status of VISIBLE_STATUSES) {
     lists[status].sort(orderBy);
     lists[status].forEach((t, i) => {
       t.order = i;
     });
   }
-  tasks = [...lists.todo, ...lists['in-progress'], ...lists.done];
+  tasks = [...lists.todo, ...lists['in-progress'], ...lists.done, ...lists.archived];
 }
 
 function applyMove(taskId, newStatus, newOrder) {
@@ -49,36 +50,47 @@ function applyMove(taskId, newStatus, newOrder) {
   if (!task) return null;
 
   const previousStatus = task.status;
-  const lists = { todo: [], 'in-progress': [], done: [] };
+  const lists = { todo: [], 'in-progress': [], done: [], archived: [] };
   for (const t of tasks) {
     if (t.id === taskId) continue;
     if (lists[t.status]) lists[t.status].push(t);
   }
-  for (const status of VALID_STATUSES) lists[status].sort(orderBy);
+  for (const status of VISIBLE_STATUSES) lists[status].sort(orderBy);
 
-  const target = lists[newStatus];
-  const clamped = Math.max(0, Math.min(newOrder, target.length));
-  target.splice(clamped, 0, task);
+  if (newStatus === 'archived') {
+    lists.archived.push(task);
+  } else {
+    const target = lists[newStatus];
+    const clamped = Math.max(0, Math.min(newOrder, target.length));
+    target.splice(clamped, 0, task);
+  }
 
   task.status = newStatus;
   task.updatedAt = new Date().toISOString();
 
-  for (const status of VALID_STATUSES) {
+  for (const status of VISIBLE_STATUSES) {
     lists[status].forEach((t, i) => {
       t.order = i;
     });
   }
-  tasks = [...lists.todo, ...lists['in-progress'], ...lists.done];
+  tasks = [...lists.todo, ...lists['in-progress'], ...lists.done, ...lists.archived];
 
   return { previousStatus };
 }
 
 app.get('/api/tasks', (_req, res) => {
-  res.json(tasks);
+  res.json(tasks.filter((t) => t.status !== 'archived'));
+});
+
+app.get('/api/tasks/history', (_req, res) => {
+  const history = tasks
+    .filter((t) => t.status === 'archived')
+    .sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''));
+  res.json(history);
 });
 
 app.post('/api/task/move', async (req, res) => {
-  const { taskId, newStatus, newOrder } = req.body ?? {};
+  const { taskId, newStatus, newOrder, summary } = req.body ?? {};
 
   if (!taskId || !newStatus) {
     return res.status(400).json({ error: 'taskId 和 newStatus 为必填项' });
@@ -94,12 +106,21 @@ app.post('/api/task/move', async (req, res) => {
     return res.status(404).json({ error: `找不到任务：${taskId}` });
   }
 
+  const previousStatus = task.status;
+  const needsSummary = previousStatus === 'in-progress' && newStatus === 'done';
+  const finalStatus = needsSummary ? 'archived' : newStatus;
+
   const parsedOrder = Number(newOrder);
   const resolvedOrder = Number.isFinite(parsedOrder) ? parsedOrder : Infinity;
   const snapshot = tasks.map((t) => ({ ...t }));
 
-  const result = applyMove(taskId, newStatus, resolvedOrder);
-  const { previousStatus } = result;
+  const result = applyMove(taskId, finalStatus, resolvedOrder);
+
+  if (needsSummary) {
+    task.completionSummary =
+      typeof summary === 'string' && summary.trim().length > 0 ? summary.trim() : '（未填写完成总结）';
+    task.archivedAt = task.updatedAt;
+  }
 
   try {
     await persist();
@@ -112,7 +133,9 @@ app.post('/api/task/move', async (req, res) => {
     success: true,
     task: tasks.find((t) => t.id === taskId),
     previousStatus,
-    tasks,
+    finalStatus,
+    archived: finalStatus === 'archived',
+    tasks: tasks.filter((t) => t.status !== 'archived'),
   });
 });
 
@@ -121,7 +144,8 @@ const PORT = process.env.PORT || 3000;
 loadTasks().then(() => {
   app.listen(PORT, () => {
     console.log(`看板服务已启动：http://localhost:${PORT}`);
-    console.log(`  GET  /api/tasks        获取全部任务`);
-    console.log(`  POST /api/task/move    移动任务到新状态`);
+    console.log(`  GET  /api/tasks            获取可见任务（过滤已归档）`);
+    console.log(`  GET  /api/tasks/history    获取已归档的历史任务`);
+    console.log(`  POST /api/task/move        移动任务（进行中→已完成=归档）`);
   });
 });
